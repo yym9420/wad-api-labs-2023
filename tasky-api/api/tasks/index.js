@@ -4,6 +4,7 @@ import { tasksData } from './tasksData';
 
 const router = express.Router(); 
 
+
 router.get('/', (req, res) => {
     res.json(tasksData);
 });
@@ -24,7 +25,9 @@ router.post('/', (req, res) => {
         description,
         deadline,
         priority,
-        done
+        done,
+        created_at: new Date().toISOString(),
+        updated_at: null
     };
     tasksData.tasks.push(newTask);
     res.status(201).json(newTask);
@@ -34,11 +37,20 @@ router.post('/', (req, res) => {
 //Update an existing task
 router.put('/:id', (req, res) => {
     const { id } = req.params;
-    const taskIndex = tasksData.tasks.findIndex(task => task.id === id); 
+    const taskIndex = tasksData.tasks.findIndex(task => task.id === id);
+
     if (taskIndex === -1) {
         return res.status(404).json({ status: 404, message: 'Task not found' });
     }
-    const updatedTask = { ...tasksData.tasks[taskIndex], ...req.body, id:id };
+
+    const existingTask = tasksData.tasks[taskIndex];
+    const updatedTask = {
+        ...existingTask,
+        ...req.body,
+        id,
+        updated_at: new Date().toISOString()
+    };
+
     tasksData.tasks[taskIndex] = updatedTask;
     res.json(updatedTask);
 });
@@ -53,4 +65,7 @@ router.delete('/:id', (req, res) => {
     res.status(204).send();
     tasksData.total_results--;
 });
+
+
+
 export default router;
