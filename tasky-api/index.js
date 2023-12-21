@@ -1,3 +1,4 @@
+import moviesRouter from './api/movies';   //import movies router
 import cors from 'cors';
 import './db';
 import dotenv from 'dotenv';
@@ -22,6 +23,7 @@ app.use(cors());
 app.use('/api/tasks', tasksRouter);
 app.use(errHandler);
 app.use('/api/users', usersRouter);
+app.use('/api/movies', moviesRouter); //ADD THIS BEFORE THE DEFAULT ERROR HANDLER.
 app.listen(port, () => {
   console.info(`Server running at ${port}`);
 });
