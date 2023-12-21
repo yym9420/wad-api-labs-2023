@@ -1,6 +1,7 @@
+import jwt from 'jsonwebtoken';
 import express from 'express';
 import User from './userModel';
-
+import asyncHandler from 'express-async-handler';
 const router = express.Router(); // eslint-disable-line
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
 // Get all users
@@ -10,51 +11,23 @@ router.get('/', async (req, res) => {
 });
 
 // register(Create) User
-router.post('/', async (req, res) => {
-    try {
+router.post('/', asyncHandler(async (req, res) => {
+  try {
+      if (!req.body.username || !req.body.password) {
+          return res.status(400).json({ success: false, msg: 'Username and password are required.' });
+      }
       if (req.query.action === 'register') {
-        // Validate the request body against the User model schema
-        const newUser = new User(req.body);
-  
-        // Validate password strength
-        if (!passwordRegex.test(newUser.password)) {
-          return res.status(400).json({
-            code: 400,
-            msg: 'Password does not meet the required strength criteria.',
-          });
-        }
-  
-        // Save the user to the database
-        await newUser.save();
-  
-        res.status(201).json({
-          code: 201,
-          msg: 'Successfully created a new user.',
-        });
+          await registerUser(req, res);
       } else {
-        // Must be an authentication request
-        const user = await User.findOne(req.body);
-        if (!user) {
-          res.status(401).json({ code: 401, msg: 'Authentication failed' });
-        } else {
-          res.status(200).json({
-            code: 200,
-            msg: 'Authentication Successful',
-            token: 'TEMPORARY_TOKEN',
-          });
-        }
+          await authenticateUser(req, res);
       }
-    } catch (error) {
-      // Handle Mongoose validation errors
-      if (error.name === 'ValidationError') {
-        const validationErrors = Object.values(error.errors).map((err) => err.message);
-        res.status(400).json({ code: 400, msg: 'Validation Error', errors: validationErrors });
-      } else {
-        // Handle other unexpected errors
-        res.status(500).json({ code: 500, msg: 'Internal Server Error' });
-      }
-    }
-  });
+  } catch (error) {
+      // Log the error and return a generic error message
+      console.error(error);
+      res.status(500).json({ success: false, msg: 'Internal server error.' });
+  }
+}));
+
 
 // Update a user
 router.put('/:id', async (req, res) => {
@@ -74,5 +47,26 @@ router.put('/:id', async (req, res) => {
         res.status(500).json({ code: 500, msg: 'Internal server error' });
     }
 });
+
+async function registerUser(req, res) {
+  // Add input validation logic here
+  await User.create(req.body);
+  res.status(201).json({ success: true, msg: 'User successfully created.' });
+};
+
+async function authenticateUser(req, res) {
+  const user = await User.findByUserName(req.body.username);
+  if (!user) {
+      return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' });
+  }
+
+  const isMatch = await user.comparePassword(req.body.password);
+  if (isMatch) {
+      const token = jwt.sign({ username: user.username }, process.env.SECRET);
+      res.status(200).json({ success: true, token: 'BEARER ' + token });
+  } else {
+      res.status(401).json({ success: false, msg: 'Wrong password.' });
+  }
+};
 
 export default router;
